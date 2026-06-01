@@ -1,0 +1,22 @@
+{
+  "comment": "Example inputs for InspectGvcfs.wdl — replace bucket paths with your own GCS URIs or local paths",
+
+  "InspectGvcfs.gvcfs": [
+    "gs://YOUR_BUCKET/cdp_samples/CDP_001.g.vcf.gz",
+    "gs://YOUR_BUCKET/cdp_samples/CDP_002.g.vcf.gz",
+    "gs://YOUR_BUCKET/cdp_samples/CDP_003.g.vcf.gz"
+  ],
+
+  "InspectGvcfs.gvcf_indices": [
+    "gs://YOUR_BUCKET/cdp_samples/CDP_001.g.vcf.gz.tbi",
+    "gs://YOUR_BUCKET/cdp_samples/CDP_002.g.vcf.gz.tbi",
+    "gs://YOUR_BUCKET/cdp_samples/CDP_003.g.vcf.gz.tbi"
+  ],
+
+  "InspectGvcfs.wgs_coverage_threshold_mb": 1500,
+
+  "InspectGvcfs.docker":    "us.gcr.io/broad-gatk/gatk:4.5.0.0",
+  "InspectGvcfs.cpu":       1,
+  "InspectGvcfs.memory_gb": 4,
+  "InspectGvcfs.disk_gb":   50
+}
