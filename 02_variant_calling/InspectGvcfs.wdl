@@ -96,7 +96,9 @@ task InspectOneGvcf {
     # An early-exit is used so large WGS files are not read to completion.
     THRESHOLD_BASES=$(( ~{wgs_coverage_threshold_mb} * 1000000 ))
 
-    SEQ_TYPE=$(bcftools query -f '%POS\t%INFO/END\t%REF\n' "$GVCF" | \
+    # set +o pipefail inside the subshell so that when awk exits early (WGS case),
+    # bcftools gets SIGPIPE but that non-zero exit does NOT abort the outer script.
+    SEQ_TYPE=$(set +o pipefail; bcftools query -f '%POS\t%INFO/END\t%REF\n' "$GVCF" | \
       awk -v thr="$THRESHOLD_BASES" '
         BEGIN { seqtype = "WES"; bases = 0 }
         {
@@ -117,7 +119,11 @@ task InspectOneGvcf {
     #                  many small GQ bands into large blocks).
     IS_REBLOCKED="false"
 
-    if bcftools view -h "$GVCF" | grep -qi "ReblockGVCF"; then
+    # Read header into a variable first so grep has no upstream pipe to bcftools;
+    # avoids SIGPIPE (bcftools exit 141) being mis-reported as a false condition
+    # by pipefail.
+    VCF_HEADER=$(bcftools view -h "$GVCF")
+    if echo "$VCF_HEADER" | grep -qi "ReblockGVCF"; then
       IS_REBLOCKED="true"
     else
       IS_REBLOCKED=$(bcftools query -f '%POS\t%INFO/END\n' "$GVCF" | \
