@@ -1,30 +1,26 @@
 version 1.0
 
 ##
-## InspectGvcfs.wdl
+## InspectGvcf.wdl
 ##
-## For each GVCF in the input list, reports:
+## Inspects a single GVCF and reports:
 ##   1. variant_count   — number of variant records (reference blocks excluded)
 ##   2. sequencing_type — "WGS" or "WES", inferred from total genomic bases covered
 ##   3. is_reblocked    — true/false; detected via header metadata and block-size heuristic
 ##
-## Per-sample outputs (one file per GVCF):
-##   {sample_id}_inspect.txt — human-readable report
-##   result.tsv              — machine-readable one-row TSV
-##
-## Workflow-level outputs:
-##   per_sample_reports — Array[File] of *_inspect.txt, one per GVCF
-##   per_sample_tsvs    — Array[File] of result.tsv rows, one per GVCF
-##   summary_tsv        — all rows combined into one table
+## Outputs:
+##   sample_id, variant_count, sequencing_type, is_reblocked  (scalar values)
+##   report_txt  — human-readable {sample_id}_inspect.txt
+##   result_tsv  — machine-readable one-row TSV
 ##
 ## Dependencies: bcftools (available in the default GATK docker image)
 ##
 
-workflow InspectGvcfs {
+workflow InspectGvcf {
 
   input {
-    Array[File] gvcfs           # one .g.vcf.gz (or .g.vcf) per sample
-    Array[File] gvcf_indices    # corresponding .tbi index files
+    File gvcf        # single .g.vcf.gz (or .g.vcf)
+    File gvcf_index  # corresponding .tbi index
 
     # Bases-covered threshold (Mb) above which a sample is classified as WGS.
     # WGS typically covers ~3,000 Mb; WES ~50–200 Mb.  Default: 1500 Mb.
@@ -37,49 +33,24 @@ workflow InspectGvcfs {
     Int    disk_gb   = 50   # increase for large WGS GVCFs (>5 GB each)
   }
 
-  # ── Scatter: inspect each GVCF independently ────────────────────────────────
-  Array[Pair[File, File]] gvcf_pairs = zip(gvcfs, gvcf_indices)
-
-  scatter (pair in gvcf_pairs) {
-    call InspectOneGvcf {
-      input:
-        gvcf                      = pair.left,
-        gvcf_index                = pair.right,
-        wgs_coverage_threshold_mb = wgs_coverage_threshold_mb,
-        docker                    = docker,
-        cpu                       = cpu,
-        memory_gb                 = memory_gb,
-        disk_gb                   = disk_gb
-    }
-  }
-
-  # ── Gather: merge all per-sample TSV rows into one summary file ─────────────
-  call GatherResults {
+  call InspectOneGvcf {
     input:
-      per_sample_tsvs = InspectOneGvcf.result_tsv,
-      docker          = docker,
-      cpu             = 1,
-      memory_gb       = 2,
-      disk_gb         = 10
+      gvcf                      = gvcf,
+      gvcf_index                = gvcf_index,
+      wgs_coverage_threshold_mb = wgs_coverage_threshold_mb,
+      docker                    = docker,
+      cpu                       = cpu,
+      memory_gb                 = memory_gb,
+      disk_gb                   = disk_gb
   }
 
-  # ── Outputs ─────────────────────────────────────────────────────────────────
   output {
-    # ── Per-sample files (one file per input GVCF, named after the sample) ───
-    # Human-readable report: {sample_id}_inspect.txt
-    Array[File]    per_sample_reports  = InspectOneGvcf.per_sample_report
-    # Machine-readable one-row TSV: sample_id, variant_count, sequencing_type, is_reblocked
-    Array[File]    per_sample_tsvs     = InspectOneGvcf.result_tsv
-
-    # ── Per-sample scalar arrays (one element per input GVCF, in input order) ─
-    Array[String]  sample_ids       = InspectOneGvcf.sample_id
-    Array[Int]     variant_counts   = InspectOneGvcf.variant_count
-    Array[String]  sequencing_types = InspectOneGvcf.sequencing_type  # "WGS" or "WES"
-    Array[Boolean] is_reblocked     = InspectOneGvcf.is_reblocked
-
-    # ── Aggregated summary (all samples in one file) ──────────────────────────
-    # Columns: sample_id, variant_count, sequencing_type, is_reblocked
-    File summary_tsv = GatherResults.summary_tsv
+    String  sample_id       = InspectOneGvcf.sample_id
+    Int     variant_count   = InspectOneGvcf.variant_count
+    String  sequencing_type = InspectOneGvcf.sequencing_type  # "WGS" or "WES"
+    Boolean is_reblocked    = InspectOneGvcf.is_reblocked
+    File    report_txt      = InspectOneGvcf.per_sample_report
+    File    result_tsv      = InspectOneGvcf.result_tsv
   }
 }
 
@@ -197,32 +168,3 @@ REPORT
   }
 }
 
-
-# ────────────────────────────────────────────────────────────────────────────
-task GatherResults {
-# ────────────────────────────────────────────────────────────────────────────
-  input {
-    Array[File] per_sample_tsvs
-    String docker
-    Int    cpu
-    Int    memory_gb
-    Int    disk_gb
-  }
-
-  command <<<
-    set -euo pipefail
-    printf 'sample_id\tvariant_count\tsequencing_type\tis_reblocked\n' > summary.tsv
-    cat ~{sep=" " per_sample_tsvs} >> summary.tsv
-  >>>
-
-  runtime {
-    docker: docker
-    cpu:    cpu
-    memory: "~{memory_gb} GiB"
-    disks:  "local-disk ~{disk_gb} HDD"
-  }
-
-  output {
-    File summary_tsv = "summary.tsv"
-  }
-}
