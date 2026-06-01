@@ -94,13 +94,16 @@ task InspectOneGvcf {
     echo "$SAMPLE_ID" > sample_id.txt
 
     # ── 2. Variant count ─────────────────────────────────────────────────────
-    # Reference blocks have ALT == <NON_REF> only.
-    # Variant records have at least one real alternate allele (e.g. A,<NON_REF>).
-    # We exclude records where the sole ALT is <NON_REF>.
-    VAR_COUNT=$(bcftools view -e 'ALT="<NON_REF>"' "$GVCF" \
-      | bcftools view -H \
-      | wc -l \
-      | tr -d '[:space:]')
+    # Distinguish reference blocks from variant records by the ALT column (col 5):
+    #   Reference block : ALT = <NON_REF>  (sole symbolic allele, starts with '<')
+    #   Variant record  : ALT = A,<NON_REF> or A or AT,... (starts with a real base)
+    #
+    # NOTE: do NOT use `bcftools view -e 'ALT="<NON_REF>"'` here.
+    # bcftools filter expressions treat '<' and '>' as comparison operators,
+    # so the expression silently misfires — either keeping all records or none.
+    # The awk column-5 check below is the reliable alternative.
+    VAR_COUNT=$(bcftools view -H "$GVCF" \
+      | awk 'BEGIN{c=0} $5 !~ /^</{c++} END{print c}')
     echo "$VAR_COUNT" > variant_count.txt
 
     # ── 3. WGS vs WES ────────────────────────────────────────────────────────
