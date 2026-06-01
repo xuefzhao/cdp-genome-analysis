@@ -8,8 +8,14 @@ version 1.0
 ##   2. sequencing_type — "WGS" or "WES", inferred from total genomic bases covered
 ##   3. is_reblocked    — true/false; detected via header metadata and block-size heuristic
 ##
-## All three values are exposed as per-sample arrays in the workflow output and
-## are also collected into a summary TSV by the GatherResults task.
+## Per-sample outputs (one file per GVCF):
+##   {sample_id}_inspect.txt — human-readable report
+##   result.tsv              — machine-readable one-row TSV
+##
+## Workflow-level outputs:
+##   per_sample_reports — Array[File] of *_inspect.txt, one per GVCF
+##   per_sample_tsvs    — Array[File] of result.tsv rows, one per GVCF
+##   summary_tsv        — all rows combined into one table
 ##
 ## Dependencies: bcftools (available in the default GATK docker image)
 ##
@@ -59,13 +65,19 @@ workflow InspectGvcfs {
 
   # ── Outputs ─────────────────────────────────────────────────────────────────
   output {
-    # Per-sample arrays (one element per input GVCF, in input order)
-    Array[String]  sample_ids      = InspectOneGvcf.sample_id
-    Array[Int]     variant_counts  = InspectOneGvcf.variant_count
-    Array[String]  sequencing_types = InspectOneGvcf.sequencing_type  # "WGS" or "WES"
-    Array[Boolean] is_reblocked    = InspectOneGvcf.is_reblocked
+    # ── Per-sample files (one file per input GVCF, named after the sample) ───
+    # Human-readable report: {sample_id}_inspect.txt
+    Array[File]    per_sample_reports  = InspectOneGvcf.per_sample_report
+    # Machine-readable one-row TSV: sample_id, variant_count, sequencing_type, is_reblocked
+    Array[File]    per_sample_tsvs     = InspectOneGvcf.result_tsv
 
-    # Aggregated summary table
+    # ── Per-sample scalar arrays (one element per input GVCF, in input order) ─
+    Array[String]  sample_ids       = InspectOneGvcf.sample_id
+    Array[Int]     variant_counts   = InspectOneGvcf.variant_count
+    Array[String]  sequencing_types = InspectOneGvcf.sequencing_type  # "WGS" or "WES"
+    Array[Boolean] is_reblocked     = InspectOneGvcf.is_reblocked
+
+    # ── Aggregated summary (all samples in one file) ──────────────────────────
     # Columns: sample_id, variant_count, sequencing_type, is_reblocked
     File summary_tsv = GatherResults.summary_tsv
   }
@@ -155,6 +167,17 @@ task InspectOneGvcf {
     printf '%s\t%s\t%s\t%s\n' \
       "$SAMPLE_ID" "$VAR_COUNT" "$SEQ_TYPE" "$IS_REBLOCKED" \
       > result.tsv
+
+    # ── Write named human-readable report for this sample ────────────────────
+    GVCF_BASENAME=$(basename "~{gvcf}")
+    cat > "${SAMPLE_ID}_inspect.txt" << REPORT
+=== GVCF Inspection Report ===
+Sample ID       : ${SAMPLE_ID}
+GVCF file       : ${GVCF_BASENAME}
+Variant count   : ${VAR_COUNT}
+Sequencing type : ${SEQ_TYPE}
+Reblocked       : ${IS_REBLOCKED}
+REPORT
   >>>
 
   runtime {
@@ -165,11 +188,12 @@ task InspectOneGvcf {
   }
 
   output {
-    String  sample_id       = read_string("sample_id.txt")
-    Int     variant_count   = read_int("variant_count.txt")
-    String  sequencing_type = read_string("sequencing_type.txt")
-    Boolean is_reblocked    = read_boolean("is_reblocked.txt")
-    File    result_tsv      = "result.tsv"
+    String  sample_id         = read_string("sample_id.txt")
+    Int     variant_count     = read_int("variant_count.txt")
+    String  sequencing_type   = read_string("sequencing_type.txt")
+    Boolean is_reblocked      = read_boolean("is_reblocked.txt")
+    File    result_tsv        = "result.tsv"
+    File    per_sample_report = glob("*_inspect.txt")[0]
   }
 }
 
