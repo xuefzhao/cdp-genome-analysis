@@ -81,7 +81,7 @@ task InferFromHeader {
     # ── 3. Parse header and infer interval list ──────────────────────────────
     # Pass WDL-substituted gvcf path as argv[1]; bash vars as argv[2..3].
     # The heredoc delimiter is quoted ('PYEOF') to suppress bash expansion;
-    # WDL's ~{} substitution has already occurred before bash runs.
+    # WDL tilde-brace substitution has already occurred before bash runs.
     python3 - "~{gvcf}" "$COVERED" "$N_CHROMS" << 'PYEOF'
 import re, sys
 
