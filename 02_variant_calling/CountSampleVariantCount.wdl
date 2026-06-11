@@ -24,6 +24,8 @@ task summarize_variants {
 
     input {
         File vcf_gz
+        File vcf_gz_tbi
+        String  sv_base_docker
     }
 
     command <<<
