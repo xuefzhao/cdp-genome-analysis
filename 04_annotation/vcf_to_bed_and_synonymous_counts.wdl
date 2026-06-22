@@ -12,14 +12,14 @@ workflow vcf_to_bed_and_variant_class_counts {
     File batch_color_tsv
     String sv_pipeline_base_docker
 
-    Structs.RuntimeAttr? runtime_attr_vcf_to_bed
-    Structs.RuntimeAttr? runtime_attr_count_variant_classes_per_contig
-    Structs.RuntimeAttr? runtime_attr_concat_beds
-    Structs.RuntimeAttr? runtime_attr_merge_synonymous_counts
-    Structs.RuntimeAttr? runtime_attr_merge_lof_counts
-    Structs.RuntimeAttr? runtime_attr_merge_missense_counts
-    Structs.RuntimeAttr? runtime_attr_merge_others_counts
-    Structs.RuntimeAttr? runtime_attr_plot_variant_histograms
+    RuntimeAttr? runtime_attr_vcf_to_bed
+    RuntimeAttr? runtime_attr_count_variant_classes_per_contig
+    RuntimeAttr? runtime_attr_concat_beds
+    RuntimeAttr? runtime_attr_merge_synonymous_counts
+    RuntimeAttr? runtime_attr_merge_lof_counts
+    RuntimeAttr? runtime_attr_merge_missense_counts
+    RuntimeAttr? runtime_attr_merge_others_counts
+    RuntimeAttr? runtime_attr_plot_variant_histograms
   }
 
   scatter (vcf in vcfs) {
@@ -113,7 +113,7 @@ task vcf_to_bed {
     File vcf
     File script
     String docker
-    Structs.RuntimeAttr? runtime_attr_override
+    RuntimeAttr? runtime_attr_override
   }
   Structs.RuntimeAttr default_attr = object {
     cpu_cores: 1,
@@ -150,7 +150,7 @@ task count_variant_classes_per_contig {
     File bed_tsv
     File script
     String docker
-    Structs.RuntimeAttr? runtime_attr_override
+    RuntimeAttr? runtime_attr_override
   }
   Structs.RuntimeAttr default_attr = object {
     cpu_cores: 1,
@@ -189,7 +189,7 @@ task concat_beds {
   input {
     Array[File] bed_files
     String docker
-    Structs.RuntimeAttr? runtime_attr_override
+    RuntimeAttr? runtime_attr_override
   }
   Structs.RuntimeAttr default_attr = object {
     cpu_cores: 1,
@@ -239,7 +239,7 @@ task merge_synonymous_counts {
     Array[File] count_tables
     File script
     String docker
-    Structs.RuntimeAttr? runtime_attr_override
+    RuntimeAttr? runtime_attr_override
   }
   Structs.RuntimeAttr default_attr = object {
     cpu_cores: 1,
@@ -273,7 +273,7 @@ task merge_lof_counts {
     Array[File] count_tables
     File script
     String docker
-    Structs.RuntimeAttr? runtime_attr_override
+    RuntimeAttr? runtime_attr_override
   }
   Structs.RuntimeAttr default_attr = object {
     cpu_cores: 1,
@@ -307,7 +307,7 @@ task merge_missense_counts {
     Array[File] count_tables
     File script
     String docker
-    Structs.RuntimeAttr? runtime_attr_override
+    RuntimeAttr? runtime_attr_override
   }
   Structs.RuntimeAttr default_attr = object {
     cpu_cores: 1,
@@ -341,7 +341,7 @@ task merge_others_counts {
     Array[File] count_tables
     File script
     String docker
-    Structs.RuntimeAttr? runtime_attr_override
+    RuntimeAttr? runtime_attr_override
   }
   Structs.RuntimeAttr default_attr = object {
     cpu_cores: 1,
@@ -380,7 +380,7 @@ task plot_variant_histograms {
     File batch_color_tsv
     File script
     String docker
-    Structs.RuntimeAttr? runtime_attr_override
+    RuntimeAttr? runtime_attr_override
   }
   Structs.RuntimeAttr default_attr = object {
     cpu_cores: 1,
