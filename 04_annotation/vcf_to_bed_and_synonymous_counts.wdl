@@ -1,4 +1,5 @@
 version 1.0
+import "../utils/Structs.wdl" as Structs
 
 workflow vcf_to_bed_and_variant_class_counts {
   input {
@@ -9,49 +10,73 @@ workflow vcf_to_bed_and_variant_class_counts {
     File plot_hist_script
     File sample_tsv
     File batch_color_tsv
+    String sv_pipeline_base_docker
+
+    Structs.RuntimeAttr? runtime_attr_vcf_to_bed
+    Structs.RuntimeAttr? runtime_attr_count_variant_classes_per_contig
+    Structs.RuntimeAttr? runtime_attr_concat_beds
+    Structs.RuntimeAttr? runtime_attr_merge_synonymous_counts
+    Structs.RuntimeAttr? runtime_attr_merge_lof_counts
+    Structs.RuntimeAttr? runtime_attr_merge_missense_counts
+    Structs.RuntimeAttr? runtime_attr_merge_others_counts
+    Structs.RuntimeAttr? runtime_attr_plot_variant_histograms
   }
 
   scatter (vcf in vcfs) {
     call vcf_to_bed {
       input:
         vcf = vcf,
-        script = vcf_to_bed_script
+        script = vcf_to_bed_script,
+        docker = sv_pipeline_base_docker,
+        runtime_attr_override = runtime_attr_vcf_to_bed
     }
 
     call count_variant_classes_per_contig {
       input:
         bed_tsv = vcf_to_bed.bed_tsv,
-        script = count_variant_classes_script
+        script = count_variant_classes_script,
+        docker = sv_pipeline_base_docker,
+        runtime_attr_override = runtime_attr_count_variant_classes_per_contig
     }
   }
 
   call concat_beds {
     input:
-      bed_files = vcf_to_bed.bed_tsv
+      bed_files = vcf_to_bed.bed_tsv,
+      docker = sv_pipeline_base_docker,
+      runtime_attr_override = runtime_attr_concat_beds
   }
 
   call merge_synonymous_counts {
     input:
       count_tables = count_variant_classes_per_contig.synonymous_count_table,
-      script = merge_counts_script
+      script = merge_counts_script,
+      docker = sv_pipeline_base_docker,
+      runtime_attr_override = runtime_attr_merge_synonymous_counts
   }
 
   call merge_lof_counts {
     input:
       count_tables = count_variant_classes_per_contig.lof_count_table,
-      script = merge_counts_script
+      script = merge_counts_script,
+      docker = sv_pipeline_base_docker,
+      runtime_attr_override = runtime_attr_merge_lof_counts
   }
 
   call merge_missense_counts {
     input:
       count_tables = count_variant_classes_per_contig.missense_count_table,
-      script = merge_counts_script
+      script = merge_counts_script,
+      docker = sv_pipeline_base_docker,
+      runtime_attr_override = runtime_attr_merge_missense_counts
   }
 
   call merge_others_counts {
     input:
       count_tables = count_variant_classes_per_contig.others_count_table,
-      script = merge_counts_script
+      script = merge_counts_script,
+      docker = sv_pipeline_base_docker,
+      runtime_attr_override = runtime_attr_merge_others_counts
   }
 
   call plot_variant_histograms {
@@ -62,7 +87,9 @@ workflow vcf_to_bed_and_variant_class_counts {
       others_table = merge_others_counts.merged_count_table,
       sample_tsv = sample_tsv,
       batch_color_tsv = batch_color_tsv,
-      script = plot_hist_script
+      script = plot_hist_script,
+      docker = sv_pipeline_base_docker,
+      runtime_attr_override = runtime_attr_plot_variant_histograms
   }
 
   output {
@@ -85,7 +112,18 @@ task vcf_to_bed {
   input {
     File vcf
     File script
+    String docker
+    Structs.RuntimeAttr? runtime_attr_override
   }
+  Structs.RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 2,
+    disk_gb: 5 * ceil(size(vcf, "GB")) + 10,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 0
+  }
+  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
 
   command <<<
     set -euo pipefail
@@ -97,8 +135,13 @@ task vcf_to_bed {
   }
 
   runtime {
-    cpu: 1
-    memory: "2G"
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
+    docker: docker
   }
 }
 
@@ -106,7 +149,18 @@ task count_variant_classes_per_contig {
   input {
     File bed_tsv
     File script
+    String docker
+    Structs.RuntimeAttr? runtime_attr_override
   }
+  Structs.RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 1,
+    disk_gb: 5 * ceil(size(bed_tsv, "GB")) + 10,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 0
+  }
+  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
 
   command <<<
     set -euo pipefail
@@ -121,15 +175,31 @@ task count_variant_classes_per_contig {
   }
 
   runtime {
-    cpu: 1
-    memory: "1G"
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
+    docker: docker
   }
 }
 
 task concat_beds {
   input {
     Array[File] bed_files
+    String docker
+    Structs.RuntimeAttr? runtime_attr_override
   }
+  Structs.RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 2,
+    disk_gb: 5 * ceil(size(bed_files, "GB")) + 10,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 0
+  }
+  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
 
   command <<<
     set -euo pipefail
@@ -154,8 +224,13 @@ task concat_beds {
   }
 
   runtime {
-    cpu: 1
-    memory: "2G"
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
+    docker: docker
   }
 }
 
@@ -163,7 +238,18 @@ task merge_synonymous_counts {
   input {
     Array[File] count_tables
     File script
+    String docker
+    Structs.RuntimeAttr? runtime_attr_override
   }
+  Structs.RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 1,
+    disk_gb: 5 * ceil(size(count_tables, "GB")) + 10,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 0
+  }
+  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     python3 "~{script}" --tables ~{sep=' ' count_tables} --out synonymous_counts_per_sample.tsv
@@ -172,8 +258,13 @@ task merge_synonymous_counts {
     File merged_count_table = "synonymous_counts_per_sample.tsv"
   }
   runtime {
-    cpu: 1
-    memory: "1G"
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
+    docker: docker
   }
 }
 
@@ -181,7 +272,18 @@ task merge_lof_counts {
   input {
     Array[File] count_tables
     File script
+    String docker
+    Structs.RuntimeAttr? runtime_attr_override
   }
+  Structs.RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 1,
+    disk_gb: 5 * ceil(size(count_tables, "GB")) + 10,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 0
+  }
+  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     python3 "~{script}" --tables ~{sep=' ' count_tables} --out lof_counts_per_sample.tsv
@@ -190,8 +292,13 @@ task merge_lof_counts {
     File merged_count_table = "lof_counts_per_sample.tsv"
   }
   runtime {
-    cpu: 1
-    memory: "1G"
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
+    docker: docker
   }
 }
 
@@ -199,7 +306,18 @@ task merge_missense_counts {
   input {
     Array[File] count_tables
     File script
+    String docker
+    Structs.RuntimeAttr? runtime_attr_override
   }
+  Structs.RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 1,
+    disk_gb: 5 * ceil(size(count_tables, "GB")) + 10,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 0
+  }
+  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     python3 "~{script}" --tables ~{sep=' ' count_tables} --out missense_counts_per_sample.tsv
@@ -208,8 +326,13 @@ task merge_missense_counts {
     File merged_count_table = "missense_counts_per_sample.tsv"
   }
   runtime {
-    cpu: 1
-    memory: "1G"
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
+    docker: docker
   }
 }
 
@@ -217,7 +340,18 @@ task merge_others_counts {
   input {
     Array[File] count_tables
     File script
+    String docker
+    Structs.RuntimeAttr? runtime_attr_override
   }
+  Structs.RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 1,
+    disk_gb: 5 * ceil(size(count_tables, "GB")) + 10,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 0
+  }
+  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     python3 "~{script}" --tables ~{sep=' ' count_tables} --out others_counts_per_sample.tsv
@@ -226,8 +360,13 @@ task merge_others_counts {
     File merged_count_table = "others_counts_per_sample.tsv"
   }
   runtime {
-    cpu: 1
-    memory: "1G"
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
+    docker: docker
   }
 }
 
@@ -240,7 +379,18 @@ task plot_variant_histograms {
     File sample_tsv
     File batch_color_tsv
     File script
+    String docker
+    Structs.RuntimeAttr? runtime_attr_override
   }
+  Structs.RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 2,
+    disk_gb: 5 * ceil(size([synonymous_table, lof_table, missense_table, others_table, sample_tsv, batch_color_tsv], "GB")) + 10,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 0
+  }
+  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     Rscript "~{script}" \
@@ -259,7 +409,12 @@ task plot_variant_histograms {
     File others_histogram_png = "variant_count_per_sample.others.hist.png"
   }
   runtime {
-    cpu: 1
-    memory: "2G"
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
+    docker: docker
   }
 }
