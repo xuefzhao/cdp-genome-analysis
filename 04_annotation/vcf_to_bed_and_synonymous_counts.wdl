@@ -115,7 +115,7 @@ task vcf_to_bed {
     String docker
     RuntimeAttr? runtime_attr_override
   }
-  Structs.RuntimeAttr default_attr = object {
+  RuntimeAttr default_attr = object {
     cpu_cores: 1,
     mem_gb: 2,
     disk_gb: 5 * ceil(size(vcf, "GB")) + 10,
@@ -123,7 +123,7 @@ task vcf_to_bed {
     preemptible_tries: 2,
     max_retries: 0
   }
-  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
 
   command <<<
     set -euo pipefail
@@ -152,7 +152,7 @@ task count_variant_classes_per_contig {
     String docker
     RuntimeAttr? runtime_attr_override
   }
-  Structs.RuntimeAttr default_attr = object {
+  RuntimeAttr default_attr = object {
     cpu_cores: 1,
     mem_gb: 1,
     disk_gb: 5 * ceil(size(bed_tsv, "GB")) + 10,
@@ -160,7 +160,7 @@ task count_variant_classes_per_contig {
     preemptible_tries: 2,
     max_retries: 0
   }
-  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
 
   command <<<
     set -euo pipefail
@@ -191,7 +191,7 @@ task concat_beds {
     String docker
     RuntimeAttr? runtime_attr_override
   }
-  Structs.RuntimeAttr default_attr = object {
+  RuntimeAttr default_attr = object {
     cpu_cores: 1,
     mem_gb: 2,
     disk_gb: 5 * ceil(size(bed_files, "GB")) + 10,
@@ -199,7 +199,7 @@ task concat_beds {
     preemptible_tries: 2,
     max_retries: 0
   }
-  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
 
   command <<<
     set -euo pipefail
@@ -241,7 +241,7 @@ task merge_synonymous_counts {
     String docker
     RuntimeAttr? runtime_attr_override
   }
-  Structs.RuntimeAttr default_attr = object {
+  RuntimeAttr default_attr = object {
     cpu_cores: 1,
     mem_gb: 1,
     disk_gb: 5 * ceil(size(count_tables, "GB")) + 10,
@@ -249,7 +249,7 @@ task merge_synonymous_counts {
     preemptible_tries: 2,
     max_retries: 0
   }
-  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     python3 "~{script}" --tables ~{sep=' ' count_tables} --out synonymous_counts_per_sample.tsv
@@ -275,7 +275,7 @@ task merge_lof_counts {
     String docker
     RuntimeAttr? runtime_attr_override
   }
-  Structs.RuntimeAttr default_attr = object {
+  RuntimeAttr default_attr = object {
     cpu_cores: 1,
     mem_gb: 1,
     disk_gb: 5 * ceil(size(count_tables, "GB")) + 10,
@@ -283,7 +283,7 @@ task merge_lof_counts {
     preemptible_tries: 2,
     max_retries: 0
   }
-  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     python3 "~{script}" --tables ~{sep=' ' count_tables} --out lof_counts_per_sample.tsv
@@ -309,7 +309,7 @@ task merge_missense_counts {
     String docker
     RuntimeAttr? runtime_attr_override
   }
-  Structs.RuntimeAttr default_attr = object {
+  RuntimeAttr default_attr = object {
     cpu_cores: 1,
     mem_gb: 1,
     disk_gb: 5 * ceil(size(count_tables, "GB")) + 10,
@@ -317,7 +317,7 @@ task merge_missense_counts {
     preemptible_tries: 2,
     max_retries: 0
   }
-  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     python3 "~{script}" --tables ~{sep=' ' count_tables} --out missense_counts_per_sample.tsv
@@ -343,7 +343,7 @@ task merge_others_counts {
     String docker
     RuntimeAttr? runtime_attr_override
   }
-  Structs.RuntimeAttr default_attr = object {
+  RuntimeAttr default_attr = object {
     cpu_cores: 1,
     mem_gb: 1,
     disk_gb: 5 * ceil(size(count_tables, "GB")) + 10,
@@ -351,7 +351,7 @@ task merge_others_counts {
     preemptible_tries: 2,
     max_retries: 0
   }
-  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     python3 "~{script}" --tables ~{sep=' ' count_tables} --out others_counts_per_sample.tsv
@@ -382,7 +382,7 @@ task plot_variant_histograms {
     String docker
     RuntimeAttr? runtime_attr_override
   }
-  Structs.RuntimeAttr default_attr = object {
+  RuntimeAttr default_attr = object {
     cpu_cores: 1,
     mem_gb: 2,
     disk_gb: 5 * ceil(size([synonymous_table, lof_table, missense_table, others_table, sample_tsv, batch_color_tsv], "GB")) + 10,
@@ -390,7 +390,7 @@ task plot_variant_histograms {
     preemptible_tries: 2,
     max_retries: 0
   }
-  Structs.RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
   command <<<
     set -euo pipefail
     Rscript "~{script}" \
