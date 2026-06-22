@@ -4,6 +4,7 @@ import "../utils/Structs.wdl" as Structs
 workflow vcf_to_bed_and_variant_class_counts {
   input {
     Array[File] vcfs
+    Array[File] vcf_idxes
     File vcf_to_bed_script
     File count_variant_classes_script
     File merge_counts_script
@@ -22,10 +23,11 @@ workflow vcf_to_bed_and_variant_class_counts {
     RuntimeAttr? runtime_attr_plot_variant_histograms
   }
 
-  scatter (vcf in vcfs) {
+  scatter (i in range(length(vcfs))) {
     call vcf_to_bed {
       input:
-        vcf = vcf,
+        vcf = vcfs[i],
+        vcf_idx = vcf_idxes[i]
         script = vcf_to_bed_script,
         docker = sv_pipeline_base_docker,
         runtime_attr_override = runtime_attr_vcf_to_bed
