@@ -1,0 +1,17 @@
+{
+  "RenameBamChroms.input_bam":     "gs://your-bucket/bams/sample.bam",
+  "RenameBamChroms.input_bai":     "gs://your-bucket/bams/sample.bam.bai",
+  "RenameBamChroms.rename_script": "gs://your-bucket/scripts/rename_bam_chroms.py",
+
+  "RenameBamChroms.sample_id":     "sample_name",
+  "RenameBamChroms.unmapped":      "keep",
+
+  "RenameBamChroms.docker":        "us.gcr.io/broad-gatk/gatk:4.5.0.0",
+  "RenameBamChroms.cpu":           2,
+  "RenameBamChroms.mem_gb":        8,
+  "RenameBamChroms.disk_gb":       100,
+  "RenameBamChroms.preemptible":   2
+
+  // ── Optional: supply a local chromAlias file to avoid the UCSC download ──
+  // "RenameBamChroms.chrom_alias": "gs://your-bucket/ref/chromAlias.txt.gz"
+}
