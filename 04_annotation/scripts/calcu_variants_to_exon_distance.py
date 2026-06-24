@@ -22,6 +22,10 @@ For intronic variants:
   dist_adjacent – span between the two flanking exons
                   (0 if variant is before the first or after the last exon)
 
+For 5UTR / 3UTR variants:
+  dist_closest  – distance to the nearest CDS exon boundary
+  dist_adjacent – '.' (not applicable)
+
 Output: BED-like TSV with columns:
   chrom  start(0-based)  end  ID  REF  ALT  FILTER
   class  dist_closest  dist_adjacent
@@ -213,6 +217,50 @@ def flanking_exons(pos, chrom, exons, exon_starts, exon_ends):
 
 # ── variant classification ────────────────────────────────────────────
 
+def dist_to_nearest_cds(pos, chrom, exons, exon_starts, exon_ends):
+    """
+    For a position inside a UTR, return the distance to the nearest CDS
+    exon boundary (start or end).  Searches both the flanking exon before
+    and after pos, filtering to CDS features only.
+
+    Returns int distance, or '.' if no CDS features exist on this chrom.
+    """
+    if chrom not in exons:
+        return '.'
+
+    es     = exons[chrom]
+    starts = exon_starts[chrom]
+    ends   = exon_ends[chrom]
+
+    # Candidate: last CDS whose start <= pos
+    idx_right = bisect.bisect_right(starts, pos)
+
+    distances = []
+
+    # Look backwards for a CDS that might overlap or be just behind pos
+    for i in range(idx_right - 1, max(idx_right - 200, -1), -1):
+        e = es[i]
+        if e[3] != 'CDS':
+            continue
+        # Distance from pos to end of this CDS (pos is past the CDS end)
+        if e[1] <= pos:
+            distances.append(pos - e[1])
+        else:
+            # CDS straddles pos (shouldn't happen for UTR variants, but handle it)
+            distances.append(0)
+        break   # nearest one behind is enough
+
+    # Look forwards for the next CDS
+    for i in range(idx_right, min(idx_right + 200, len(es))):
+        e = es[i]
+        if e[3] != 'CDS':
+            continue
+        distances.append(e[0] - pos)
+        break
+
+    return min(distances) if distances else '.'
+
+
 def classify_variant(pos, chrom,
                      genes, exons,
                      gene_starts, gene_ends,
@@ -226,7 +274,13 @@ def classify_variant(pos, chrom,
     (classification, dist_closest, dist_adjacent)
     classification : str
     dist_closest   : int or '.'
+                     – intronic/UTR: distance to nearest exon / CDS boundary
+                     – intergenic:   distance to nearest gene boundary
+                     – coding:       '.'
     dist_adjacent  : int or '.'
+                     – intronic:    span between the two flanking exons
+                     – intergenic:  span between the two flanking genes
+                     – UTR/coding:  '.'
     """
     # 1. Check exon-level features first (UTR / CDS / exon)
     ov_exons = overlapping_exons(pos, chrom, exons, exon_starts, exon_ends)
@@ -236,9 +290,11 @@ def classify_variant(pos, chrom,
         if 'CDS' in feats:
             return 'coding', '.', '.'
         if '5UTR' in feats:
-            return '5UTR', '.', '.'
+            dist_c = dist_to_nearest_cds(pos, chrom, exons, exon_starts, exon_ends)
+            return '5UTR', dist_c, '.'
         if '3UTR' in feats:
-            return '3UTR', '.', '.'
+            dist_c = dist_to_nearest_cds(pos, chrom, exons, exon_starts, exon_ends)
+            return '3UTR', dist_c, '.'
         return 'coding', '.', '.'   # exon overlap, no CDS annotation → treat as coding
 
     # 2. Check gene overlap → intronic

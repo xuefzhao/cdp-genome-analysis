@@ -1,0 +1,11 @@
+{
+  "comment": "Example inputs for InferIntervalList.wdl — replace with your actual GCS URI or local path",
+
+  "InferIntervalList.gvcf":       "gs://YOUR_BUCKET/cdp_samples/CDP_001.g.vcf.gz",
+  "InferIntervalList.gvcf_index": "gs://YOUR_BUCKET/cdp_samples/CDP_001.g.vcf.gz.tbi",
+
+  "InferIntervalList.docker":    "us.gcr.io/broad-gatk/gatk:4.5.0.0",
+  "InferIntervalList.cpu":       1,
+  "InferIntervalList.memory_gb": 4,
+  "InferIntervalList.disk_gb":   30
+}

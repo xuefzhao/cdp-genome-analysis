@@ -1,0 +1,13 @@
+{
+  "comment": "Example inputs for InspectGvcf.wdl — replace with your actual GCS URI or local path",
+
+  "InspectGvcf.gvcf":       "gs://YOUR_BUCKET/cdp_samples/CDP_001.g.vcf.gz",
+  "InspectGvcf.gvcf_index": "gs://YOUR_BUCKET/cdp_samples/CDP_001.g.vcf.gz.tbi",
+
+  "InspectGvcf.wgs_coverage_threshold_mb": 1500,
+
+  "InspectGvcf.docker":    "us.gcr.io/broad-gatk/gatk:4.5.0.0",
+  "InspectGvcf.cpu":       1,
+  "InspectGvcf.memory_gb": 4,
+  "InspectGvcf.disk_gb":   50
+}
