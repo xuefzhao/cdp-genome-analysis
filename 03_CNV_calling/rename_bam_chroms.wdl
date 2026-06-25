@@ -147,17 +147,7 @@ task RenameContigs {
         # ── Step 3: index → .bai ──────────────────────────────────────────
         samtools index -@ ~{cpu} ~{output_bam}
 
-        echo "[$(date '+%H:%M:%S')] Done."
 
-        # ── Sanity checks ─────────────────────────────────────────────────
-        echo "--- First 5 @SQ lines in output header ---"
-        samtools view -H ~{output_bam} | grep "^@SQ" | head -5
-
-        N=$(samtools view -H ~{output_bam} | grep -c "^@SQ" || true)
-        echo "Output BAM has ${N} @SQ contig header lines."
-
-        echo "--- Output files ---"
-        ls -lh ~{output_bam} ~{output_bai}
     >>>
 
     output {
