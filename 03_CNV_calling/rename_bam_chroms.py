@@ -183,6 +183,9 @@ def main():
     ap.add_argument('--unmapped', choices=['keep', 'drop'], default='keep',
                     help='What to do with contigs absent from alias table '
                          '(default: keep — leave name unchanged)')
+    ap.add_argument('--ref',      default=None,
+                    help='Reference FASTA — required when input is a CRAM file '
+                         'so samtools can decode reads during reheader')
     args = ap.parse_args()
 
     # ── Step 1: get alias table ────────────────────────────────────────
@@ -233,16 +236,15 @@ def main():
     # Redirect stdout directly to the output file.
     print("Running samtools reheader…", file=sys.stderr)
     cmd = ['samtools', 'reheader', tmp_hdr_path, args.bam]
+    # For CRAM input, samtools needs the reference to decode reads
+    if args.ref:
+        cmd = ['samtools', 'reheader', '-T', args.ref, tmp_hdr_path, args.bam]
     print("  $ " + ' '.join(cmd) + " > " + args.out, file=sys.stderr)
     try:
         with open(args.out, 'wb') as out_fh:
             subprocess.run(cmd, stdout=out_fh, check=True)
     finally:
         os.unlink(tmp_hdr_path)
-
-    # ── Step 6: index ──────────────────────────────────────────────────
-    print("Indexing output BAM…", file=sys.stderr)
-    run(['samtools', 'index', args.out])
 
     print(f"\nDone. Output: {args.out}", file=sys.stderr)
 

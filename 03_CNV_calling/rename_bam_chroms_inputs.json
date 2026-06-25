@@ -1,17 +1,18 @@
 {
-  "RenameBamChroms.input_bam":     "gs://your-bucket/bams/sample.bam",
-  "RenameBamChroms.input_bai":     "gs://your-bucket/bams/sample.bam.bai",
-  "RenameBamChroms.rename_script": "gs://your-bucket/scripts/rename_bam_chroms.py",
+  "RenameBamChroms.input_bam":      "gs://your-bucket/bams/sample.cram",
+  "RenameBamChroms.input_bai":      "gs://your-bucket/bams/sample.cram.crai",
+  "RenameBamChroms.ref_fasta":      "gs://broad-references/hg38/v0/Homo_sapiens_assembly38.fasta",
+  "RenameBamChroms.ref_fasta_fai":  "gs://broad-references/hg38/v0/Homo_sapiens_assembly38.fasta.fai",
+  "RenameBamChroms.rename_script":  "gs://your-bucket/scripts/rename_bam_chroms.py",
+  "RenameBamChroms.sample_id":      "sample_name",
+  "RenameBamChroms.unmapped":       "keep",
 
-  "RenameBamChroms.sample_id":     "sample_name",
-  "RenameBamChroms.unmapped":      "keep",
+  "RenameBamChroms.docker":         "us.gcr.io/broad-gatk/gatk:4.5.0.0",
+  "RenameBamChroms.cpu":            4,
+  "RenameBamChroms.mem_gb":         16,
+  "RenameBamChroms.disk_gb":        200,
+  "RenameBamChroms.preemptible":    2
 
-  "RenameBamChroms.docker":        "us.gcr.io/broad-gatk/gatk:4.5.0.0",
-  "RenameBamChroms.cpu":           2,
-  "RenameBamChroms.mem_gb":        8,
-  "RenameBamChroms.disk_gb":       100,
-  "RenameBamChroms.preemptible":   2
-
-  // ── Optional: supply a local chromAlias file to avoid the UCSC download ──
+  // Optional: supply a local chromAlias file to avoid the UCSC download
   // "RenameBamChroms.chrom_alias": "gs://your-bucket/ref/chromAlias.txt.gz"
 }
