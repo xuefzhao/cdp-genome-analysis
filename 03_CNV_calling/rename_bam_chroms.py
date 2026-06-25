@@ -231,20 +231,59 @@ def main():
         tmp_hdr.write('\n'.join(new_lines) + '\n')
         tmp_hdr_path = tmp_hdr.name
 
-    # ── Step 5: samtools reheader ──────────────────────────────────────
-    # samtools reheader always writes to stdout (no --output flag).
-    # Redirect stdout directly to the output file.
+    # ── Step 5: CRAM → BAM (if input is CRAM) then reheader ──────────────
+    #
+    # samtools reheader does not support -T (no reference flag).
+    # For CRAM input we must first decode to BAM with samtools view -T,
+    # then apply the header rewrite to the resulting BAM (no ref needed).
+    #
+    # Strategy:
+    #   CRAM input  →  samtools view -T ref -b  →  tmp_decoded.bam
+    #                  samtools reheader new_hdr tmp_decoded.bam → out.bam
+    #   BAM input   →  samtools reheader new_hdr in.bam          → out.bam
+
+    is_cram = args.bam.lower().endswith('.cram')
+
+    if is_cram:
+        if not args.ref:
+            print("ERROR: --ref is required when input is a CRAM file.",
+                  file=sys.stderr)
+            sys.exit(1)
+
+        # Decode CRAM → BAM first
+        decoded_bam = args.out + '.decoded.bam'
+        decode_cmd = [
+            'samtools', 'view',
+            '-T', args.ref,
+            '-b',                  # output BAM
+            '-o', decoded_bam,
+            args.bam
+        ]
+        print("Decoding CRAM → BAM (requires reference)…", file=sys.stderr)
+        print("  $ " + ' '.join(decode_cmd), file=sys.stderr)
+        try:
+            subprocess.run(decode_cmd, check=True)
+        except Exception:
+            if os.path.exists(decoded_bam):
+                os.unlink(decoded_bam)
+            raise
+
+        reheader_input = decoded_bam
+    else:
+        reheader_input = args.bam
+        decoded_bam    = None
+
+    # Apply the rewritten header to the BAM (no -T needed for BAM)
     print("Running samtools reheader…", file=sys.stderr)
-    cmd = ['samtools', 'reheader', tmp_hdr_path, args.bam]
-    # For CRAM input, samtools needs the reference to decode reads
-    if args.ref:
-        cmd = ['samtools', 'reheader', '-T', args.ref, tmp_hdr_path, args.bam]
-    print("  $ " + ' '.join(cmd) + " > " + args.out, file=sys.stderr)
+    reheader_cmd = ['samtools', 'reheader', tmp_hdr_path, reheader_input]
+    print("  $ " + ' '.join(reheader_cmd) + " > " + args.out, file=sys.stderr)
     try:
         with open(args.out, 'wb') as out_fh:
-            subprocess.run(cmd, stdout=out_fh, check=True)
+            subprocess.run(reheader_cmd, stdout=out_fh, check=True)
     finally:
         os.unlink(tmp_hdr_path)
+        if decoded_bam and os.path.exists(decoded_bam):
+            os.unlink(decoded_bam)
 
     print(f"\nDone. Output: {args.out}", file=sys.stderr)
 
