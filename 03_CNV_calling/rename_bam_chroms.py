@@ -52,17 +52,26 @@ def load_alias(alias_path):
     """
     Parse chromAlias.txt(.gz).
 
-    UCSC format (3 columns, tab-separated):
+    UCSC chromAlias files come in two formats depending on release:
+
+    Format A – older (3 columns):
         alias           source      ucscName
         1               ensembl     chr1
         KI270419.1      ensembl     chrUn_KI270419v1
-        chrUn_KI270419v1 ucsc       chrUn_KI270419v1   ← identity rows exist too
 
-    Returns dict: ensembl_name → ucsc_name
-    Only rows whose source contains 'ensembl' are used; identity rows are skipped.
+    Format B – newer (columns may be reordered, ucsc name is first):
+        #ucscName       alias       source
+        chr1            1           ensembl
+        chrUn_KI270419v1 KI270419.1 ensembl
+
+    Strategy: for each data row, identify which field looks like a UCSC name
+    (starts with 'chr') and which looks like an Ensembl name (does not start
+    with 'chr'). Build mapping: ensembl_name → ucsc_name regardless of column
+    order.  Rows where both or neither field starts with 'chr' are skipped.
     """
     mapping = {}
     opener = gzip.open if alias_path.endswith('.gz') else open
+    skipped = 0
 
     with opener(alias_path, 'rt') as fh:
         for line in fh:
@@ -70,13 +79,37 @@ def load_alias(alias_path):
             if not line or line.startswith('#'):
                 continue
             parts = line.split('\t')
-            if len(parts) < 3:
+            if len(parts) < 2:
                 continue
-            alias, source, ucsc_name = parts[0], parts[1], parts[2]
-            if 'ensembl' in source.lower() and alias != ucsc_name:
-                mapping[alias] = ucsc_name
 
-    print(f"  Loaded {len(mapping):,} Ensembl→UCSC name mappings.", file=sys.stderr)
+            # Find the UCSC-style name (starts with 'chr') among all fields
+            ucsc_candidates = [p for p in parts if p.startswith('chr')]
+            # Find the non-UCSC names (Ensembl / RefSeq / etc.)
+            other_candidates = [p for p in parts if not p.startswith('chr')
+                                 and p not in ('ensembl', 'refseq', 'assembly',
+                                               'ucsc', 'genbank')]
+
+            if len(ucsc_candidates) != 1 or not other_candidates:
+                skipped += 1
+                continue
+
+            ucsc_name = ucsc_candidates[0]
+            for alias in other_candidates:
+                if alias != ucsc_name:
+                    mapping[alias] = ucsc_name
+
+    if skipped:
+        print(f"  Skipped {skipped} ambiguous alias rows.", file=sys.stderr)
+    print(f"  Loaded {len(mapping):,} alias→UCSC name mappings.", file=sys.stderr)
+    if len(mapping) == 0:
+        print("  WARNING: 0 mappings loaded — check alias file format.",
+              file=sys.stderr)
+        print("  First few raw lines:", file=sys.stderr)
+        with opener(alias_path, 'rt') as fh:
+            for i, line in enumerate(fh):
+                print(f"    {repr(line.rstrip())}", file=sys.stderr)
+                if i >= 5:
+                    break
     return mapping
 
 
@@ -172,12 +205,21 @@ def main():
     print("Extracting BAM header…", file=sys.stderr)
     result = subprocess.run(
         ['samtools', 'view', '-H', args.bam],
-        capture_output=True, text=True, check=True
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        universal_newlines=True, check=True
     )
     old_lines = result.stdout.rstrip('\n').split('\n')
 
     # ── Step 3: rewrite header ─────────────────────────────────────────
     print("Rewriting contig names in header…", file=sys.stderr)
+    # Debug: show first few contig names before renaming
+    sq_lines = [l for l in old_lines if l.startswith('@SQ')]
+    sample_names = []
+    for l in sq_lines[:5]:
+        for f in l.split('\t'):
+            if f.startswith('SN:'):
+                sample_names.append(f[3:])
+    print(f"  First contig names in header: {sample_names}", file=sys.stderr)
     new_lines = rewrite_header(old_lines, mapping, unmapped=args.unmapped)
 
     # ── Step 4: write new header to temp file ─────────────────────────
@@ -187,19 +229,14 @@ def main():
         tmp_hdr_path = tmp_hdr.name
 
     # ── Step 5: samtools reheader ──────────────────────────────────────
+    # samtools reheader always writes to stdout (no --output flag).
+    # Redirect stdout directly to the output file.
     print("Running samtools reheader…", file=sys.stderr)
+    cmd = ['samtools', 'reheader', tmp_hdr_path, args.bam]
+    print("  $ " + ' '.join(cmd) + " > " + args.out, file=sys.stderr)
     try:
-        run(['samtools', 'reheader', tmp_hdr_path, args.bam,
-             '--output', args.out])
-    except TypeError:
-        # older samtools: reheader writes to stdout, no --output flag
-        print("  (falling back to stdout redirect for older samtools)",
-              file=sys.stderr)
         with open(args.out, 'wb') as out_fh:
-            subprocess.run(
-                ['samtools', 'reheader', tmp_hdr_path, args.bam],
-                stdout=out_fh, check=True
-            )
+            subprocess.run(cmd, stdout=out_fh, check=True)
     finally:
         os.unlink(tmp_hdr_path)
 
