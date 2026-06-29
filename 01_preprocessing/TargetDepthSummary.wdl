@@ -1,5 +1,7 @@
 version 1.0
 
+import "../utils/Structs.wdl"
+
 ## TargetDepthSummary
 ##
 ## Summarize WES sequencing depth inside vs. outside the capture targets.
@@ -27,6 +29,10 @@ workflow TargetDepthSummary {
     Int depth_col = 4                  # 1-based column holding depth in the per-base bed
     String bedtools_docker = "quay.io/biocontainers/bedtools:2.31.1--h13024bc_3"
     String python_docker = "python:3.11-slim"
+
+    # Optional per-task resource overrides (see utils/Structs.wdl: RuntimeAttr).
+    RuntimeAttr? runtime_attr_chrom_histograms
+    RuntimeAttr? runtime_attr_summarize
   }
 
   scatter (bed in per_base_beds) {
@@ -35,7 +41,8 @@ workflow TargetDepthSummary {
         per_base_bed = bed,
         target_bed   = target_bed,
         depth_col    = depth_col,
-        docker       = bedtools_docker
+        docker       = bedtools_docker,
+        runtime_attr_override = runtime_attr_chrom_histograms
     }
   }
 
@@ -44,7 +51,8 @@ workflow TargetDepthSummary {
       within_hists  = ChromHistograms.within_hist,
       outside_hists = ChromHistograms.outside_hist,
       sample_id     = sample_id,
-      docker        = python_docker
+      docker        = python_docker,
+      runtime_attr_override = runtime_attr_summarize
   }
 
   output {
@@ -69,10 +77,21 @@ task ChromHistograms {
     File target_bed
     Int depth_col = 4
     String docker
-    Int cpu = 1
-    Int mem_gb = 4
+    RuntimeAttr? runtime_attr_override
   }
-  Int disk_gb = ceil(size(per_base_bed, "GB") + size(target_bed, "GB")) * 5 + 20
+
+  # Disk scales with input size; used as the default unless overridden.
+  Int default_disk_gb = ceil(size(per_base_bed, "GB") + size(target_bed, "GB")) * 5 + 20
+
+  RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 4.0,
+    disk_gb: default_disk_gb,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 1
+  }
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
 
   command <<<
     set -euo pipefail
@@ -110,10 +129,12 @@ task ChromHistograms {
 
   runtime {
     docker: docker
-    cpu: cpu
-    memory: mem_gb + " GB"
-    disks: "local-disk " + disk_gb + " HDD"
-    preemptible: 2
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
   }
 }
 
@@ -125,7 +146,18 @@ task Summarize {
     Array[File] outside_hists
     String sample_id = "sample"
     String docker
+    RuntimeAttr? runtime_attr_override
   }
+
+  RuntimeAttr default_attr = object {
+    cpu_cores: 1,
+    mem_gb: 2.0,
+    disk_gb: 20,
+    boot_disk_gb: 10,
+    preemptible_tries: 2,
+    max_retries: 1
+  }
+  RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
 
   command <<<
     set -euo pipefail
@@ -206,9 +238,11 @@ PY
 
   runtime {
     docker: docker
-    cpu: 1
-    memory: "2 GB"
-    disks: "local-disk 20 HDD"
-    preemptible: 2
+    cpu: select_first([runtime_attr.cpu_cores, default_attr.cpu_cores])
+    memory: select_first([runtime_attr.mem_gb, default_attr.mem_gb]) + " GiB"
+    disks: "local-disk " + select_first([runtime_attr.disk_gb, default_attr.disk_gb]) + " HDD"
+    bootDiskSizeGb: select_first([runtime_attr.boot_disk_gb, default_attr.boot_disk_gb])
+    preemptible: select_first([runtime_attr.preemptible_tries, default_attr.preemptible_tries])
+    maxRetries: select_first([runtime_attr.max_retries, default_attr.max_retries])
   }
 }
