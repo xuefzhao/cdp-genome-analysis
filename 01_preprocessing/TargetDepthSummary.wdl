@@ -82,10 +82,11 @@ task ChromHistograms {
 
   # Disk scales with input size; used as the default unless overridden.
   Int default_disk_gb = ceil(size(per_base_bed, "GB") + size(target_bed, "GB")) * 5 + 20
+  Int default_mem_gb = ceil(size(per_base_bed, "GB") + size(target_bed, "GB")) * 5 + 10
 
   RuntimeAttr default_attr = object {
     cpu_cores: 1,
-    mem_gb: 4.0,
+    mem_gb: default_mem_gb,
     disk_gb: default_disk_gb,
     boot_disk_gb: 10,
     preemptible_tries: 2,
