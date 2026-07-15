@@ -1,0 +1,41 @@
+version: 1.2
+workflows:
+  - name: InspectGvcf_1
+    subclass: WDL
+    primaryDescriptorPath: /02_small_variant_calling/InspectGvcfs.wdl
+  - name: TargetDepthSummary
+    subclass: WDL
+    primaryDescriptorPath: /01_preprocessing/TargetDepthSummary.wdl
+  - name: InferIntervalList_2
+    subclass: WDL
+    primaryDescriptorPath: /02_variant_calling/InferIntervalList.wdl
+  - name: CountSampleVariantCount_3
+    subclass: WDL
+    primaryDescriptorPath: /02_small_variant_calling/CountSampleVariantCount.wdl
+  - name: IntegrateMosdepthSummary
+    subclass: WDL
+    primaryDescriptorPath: /01_preprocessing/IntegrateMosdepthSummary.wdl
+  - name: InspectGvcf_4
+    subclass: WDL
+    primaryDescriptorPath: /02_variant_calling/InspectGvcfs.wdl
+  - name: AncestryInference
+    subclass: WDL
+    primaryDescriptorPath: /01_preprocessing/ancestry-inference-hail-v01.wdl
+  - name: ClassifyVariantsWorkflow
+    subclass: WDL
+    primaryDescriptorPath: /04_annotation/calcu_variants_to_exon_distance.wdl
+  - name: MosDepth
+    subclass: WDL
+    primaryDescriptorPath: /01_preprocessing/MosDepth.wdl
+  - name: vcf_to_bed_and_variant_class_counts
+    subclass: WDL
+    primaryDescriptorPath: /04_annotation/vcf_to_bed_and_synonymous_counts.wdl
+  - name: RenameBamChroms
+    subclass: WDL
+    primaryDescriptorPath: /03_CNV_calling/rename_bam_chroms.wdl
+  - name: InferIntervalList_5
+    subclass: WDL
+    primaryDescriptorPath: /02_small_variant_calling/InferIntervalList.wdl
+  - name: CountSampleVariantCount_6
+    subclass: WDL
+    primaryDescriptorPath: /02_variant_calling/CountSampleVariantCount.wdl
